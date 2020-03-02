@@ -1,3 +1,10 @@
-from django.shortcuts import render
+from rest_framework.generics import ListAPIView
 
-# Create your views here.
+from api.models import Title
+from api.serializers import TitleSerializer
+
+
+class TitleView(ListAPIView):
+
+    queryset = Title.objects.all()[:100]
+    serializer_class = TitleSerializer
