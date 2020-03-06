@@ -27,3 +27,37 @@ class Personnel(models.Model):
 
     class Meta:
         unique_together = ('tconst', 'ordering')
+
+
+class Continent(models.Model):
+    code = models.CharField(max_length=2, primary_key=True, verbose_name='Code')
+    name = models.TextField(null=False, verbose_name='Name')
+
+
+class Country(models.Model):
+    alpha2 = models.CharField(max_length=2, unique=True, primary_key=True, verbose_name='ISO3166-1-Alpha-2')
+    alpha3 = models.CharField(max_length=3, unique=True, verbose_name='ISO3166-1-Alpha-3')
+    dial = models.TextField(verbose_name='Dial')
+    name = models.TextField(verbose_name='Global Name')
+    capital = models.TextField(verbose_name='Capital')
+    continent = models.ForeignKey(Continent, null=True, on_delete=models.CASCADE, verbose_name='Continent')
+
+
+#class Currency(models.Model):
+    pass
+
+
+#class Airport(models.Model):
+#    ident = models.CharField(max_length=8, primary_key=True)
+#    type = models.TextField()
+#    name = models.TextField()
+#    elevation = models.IntegerField()
+#    continent = models.ForeignKey(Continent, on_delete=models.CASCADE)
+#    iso_country
+#    iso_region
+#    municipality
+#    gps_code
+#    iata_code
+#    local_code
+#    latitude
+#    longitude
