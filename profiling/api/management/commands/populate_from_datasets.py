@@ -8,16 +8,16 @@ from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.management import BaseCommand
 
-from api.models import Country, Continent
+from api.models import Country, Continent, Airport
 
 
 class Command(BaseCommand):
 
     _sources = {
         Continent: "https://raw.githubusercontent.com/datasets/continent-codes/master/data/continent-codes.csv",
-        Country: "https://raw.githubusercontent.com/datasets/country-codes/master/data/country-codes.csv"
+        Country: "https://raw.githubusercontent.com/datasets/country-codes/master/data/country-codes.csv",
+        Airport: "https://raw.githubusercontent.com/datasets/airport-codes/master/data/airport-codes.csv"
     }
-    # "https://raw.githubusercontent.com/datasets/airport-codes/master/data/airport-codes.csv"
     _batch_size = 500
 
     def handle(self, *args, **options):
@@ -25,11 +25,15 @@ class Command(BaseCommand):
         foreign_keys = {}
 
         continent_file_path = self._get_data_file(self._sources[Continent], dir_name)
-        continents = self._populate_model(Continent, continent_file_path)
+        continents = self._populate_model(Continent, ContinentConverter, continent_file_path)
         foreign_keys[Continent._meta.model] = set(c.pk for c in continents)
 
         country_file_path = self._get_data_file(self._sources[Country], dir_name)
-        countries = self._populate_model(Country, country_file_path, foreign_keys=foreign_keys)
+        countries = self._populate_model(Country, CountryConverter, country_file_path, foreign_keys=foreign_keys)
+        foreign_keys[Country._meta.model] = set(c.pk for c in countries)
+
+        airport_file_path = self._get_data_file(self._sources[Airport], dir_name)
+        airports = self._populate_model(Airport, AirportConverter, airport_file_path, foreign_keys=foreign_keys)
 
     @staticmethod
     def _make_data_directory():
@@ -47,10 +51,11 @@ class Command(BaseCommand):
             urlretrieve(data_file, target_path)
         return target_path
 
-    def _populate_model(self, model, target_path, foreign_keys=None):
+    def _populate_model(self, model, model_converter_class, target_path, foreign_keys=None):
         model.objects.all().delete()
         created = []
-        generator = self._model_instance_generator(model, target_path, foreign_keys)
+        model_converter = model_converter_class(foreign_keys)
+        generator = self._model_instance_generator(model_converter, target_path)
         while True:
             batch = list(islice(generator, self._batch_size))
             if not batch:
@@ -60,42 +65,73 @@ class Command(BaseCommand):
         return created
 
     @staticmethod
-    def _model_instance_generator(model, target_path, foreign_keys=None):
-            row_to_model = verbose_name_model_converter(model, foreign_keys)
+    def _model_instance_generator(model_converter, target_path):
             with open(target_path, encoding='utf-8') as csv_file:
                 for idx, row in enumerate(csv.DictReader(csv_file, delimiter=',', quotechar='"')):
-                    instance = row_to_model(row)
+                    instance = model_converter.convert(row)
                     yield instance
 
 
-def verbose_name_model_converter(model, foreign_keys=None):
-    """
-    Factory to create a converter function that translates CSV entry into model instance.
-    """
-    if foreign_keys is None:
-        foreign_keys = {}
+class ModelConverterBase(object):
+    model = None
 
-    converter = {}
-    many2one = {}
-    for field in model._meta.get_fields():
-        if isinstance(field, ArrayField):
-            converter[field.verbose_name] = field.name, lambda value: value.split(',')
-        elif not field.is_relation:
-            converter[field.verbose_name] = field.name, lambda value: value
-        elif field.many_to_one:
-            relation = foreign_keys[field.related_model]
-            many2one[field.verbose_name] = (field.name + '_id', relation)
+    def __init__(self, foreign_keys=None):
+        self.foreign_keys = {} if foreign_keys is None else foreign_keys
+        fields = self.model._meta.get_fields()
+        self.verbose_names = {f.verbose_name: f.name for f in fields if hasattr(f, 'verbose_name')}
+        self.relations = {f.name: f.related_model for f in fields if f.is_relation}
 
-    def row_to_model(row):
+    def _update_default(self, params, key, value):
+        if key not in self.relations:
+            params[key] = value
+            return
+        relation_name = self.relations[key]
+        relation = self.foreign_keys[relation_name]
+        _val = value if value in relation else None
+        _key = '{}_id'.format(key)
+        params[_key] = _val
+
+    def convert(self, row):
         params = {}
         for key, val in row.items():
-            if key in converter:
-                _key = converter[key][0]
-                params[_key] = converter[key][1](val)
-            elif key in many2one and val in many2one[key][1]:
-                _key = many2one[key][0]
-                params[_key] = val
+            if key not in self.verbose_names:
+                continue
+            _key = self.verbose_names[key]
+            converter_name = 'update_{}'.format(_key)
+            converter = getattr(self, converter_name, self._update_default)
+            converter(params, _key, val)
+        return self.model(**params)
 
-        return model(**params)
 
-    return row_to_model
+class ContinentConverter(ModelConverterBase):
+    model = Continent
+
+
+class CountryConverter(ModelConverterBase):
+    model = Country
+
+    def update_languages(self, params, key, value):
+        params[key] = value.split(',')
+
+
+class AirportConverter(ModelConverterBase):
+    model = Airport
+
+    def update_elevation(self, params, key, value):
+        try:
+            _val = float(value) * 0.3048
+        except ValueError:
+            return
+        params[key] = _val
+
+    def update_latitude(self, params, key, value):
+        _val = value.split(',')
+        if len(_val) != 2:
+            return
+        lat = float(_val[0])
+        lon = float(_val[1])
+        params['latitude'] = lat
+        params['longitude'] = lon
+
+    def update_longitude(self, params, key, value):
+        self.update_latitude(params, key, value)
