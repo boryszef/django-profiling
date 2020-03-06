@@ -1,10 +1,16 @@
 from rest_framework.generics import ListAPIView
 
-from api.models import Title
-from api.serializers import TitleSerializer
+from api.models import Continent, Country
+from api.serializers import ContinentSerializer, CountrySerializer
 
 
-class TitleView(ListAPIView):
+class ContinentView(ListAPIView):
 
-    queryset = Title.objects.all()[:100]
-    serializer_class = TitleSerializer
+    queryset = Continent.objects.all()
+    serializer_class = ContinentSerializer
+
+
+class CountryView(ListAPIView):
+
+    queryset = Country.objects.all()
+    serializer_class = CountrySerializer

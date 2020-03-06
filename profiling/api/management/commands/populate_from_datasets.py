@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from urllib.request import urlretrieve
 
 from django.conf import settings
+from django.contrib.postgres.fields import ArrayField
 from django.core.management import BaseCommand
 
 from api.models import Country, Continent
@@ -62,7 +63,7 @@ class Command(BaseCommand):
     def _model_instance_generator(model, target_path, foreign_keys=None):
             row_to_model = verbose_name_model_converter(model, foreign_keys)
             with open(target_path, encoding='utf-8') as csv_file:
-                for idx, row in enumerate(csv.DictReader(csv_file, delimiter=',')):
+                for idx, row in enumerate(csv.DictReader(csv_file, delimiter=',', quotechar='"')):
                     instance = row_to_model(row)
                     yield instance
 
@@ -77,8 +78,10 @@ def verbose_name_model_converter(model, foreign_keys=None):
     converter = {}
     many2one = {}
     for field in model._meta.get_fields():
-        if not field.is_relation:
-            converter[field.verbose_name] = field.name
+        if isinstance(field, ArrayField):
+            converter[field.verbose_name] = field.name, lambda value: value.split(',')
+        elif not field.is_relation:
+            converter[field.verbose_name] = field.name, lambda value: value
         elif field.many_to_one:
             relation = foreign_keys[field.related_model]
             many2one[field.verbose_name] = (field.name + '_id', relation)
@@ -87,8 +90,8 @@ def verbose_name_model_converter(model, foreign_keys=None):
         params = {}
         for key, val in row.items():
             if key in converter:
-                _key = converter[key]
-                params[_key] = val
+                _key = converter[key][0]
+                params[_key] = converter[key][1](val)
             elif key in many2one and val in many2one[key][1]:
                 _key = many2one[key][0]
                 params[_key] = val

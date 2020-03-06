@@ -1,10 +1,10 @@
 from django.urls import path
 
-from api.views import TitleView
-
+from api.views import ContinentView, CountryView
 
 app_name = 'api'
 
 urlpatterns = [
-    path('titles/', TitleView.as_view())
+    path('continents/', ContinentView.as_view()),
+    path('countries/', CountryView.as_view())
 ]
