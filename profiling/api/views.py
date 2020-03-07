@@ -1,7 +1,7 @@
 from rest_framework.generics import ListAPIView
 
-from api.models import Continent, Country
-from api.serializers import ContinentSerializer, CountrySerializer
+from api.models import Continent, Country, Airport
+from api.serializers import ContinentSerializer, CountrySerializer, AirportSerializer
 
 
 class ContinentView(ListAPIView):
@@ -14,3 +14,9 @@ class CountryView(ListAPIView):
 
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
+
+
+class AirportView(ListAPIView):
+
+    queryset = Airport.objects.all()
+    serializer_class = AirportSerializer
