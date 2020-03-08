@@ -5,10 +5,9 @@ from urllib.parse import urlparse
 from urllib.request import urlretrieve
 
 from django.conf import settings
-from django.contrib.postgres.fields import ArrayField
 from django.core.management import BaseCommand
 
-from api.models import Country, Continent, Airport
+from api.models import Country, Continent, Airport, City
 
 
 class Command(BaseCommand):
@@ -16,9 +15,12 @@ class Command(BaseCommand):
     _sources = {
         Continent: "https://raw.githubusercontent.com/datasets/continent-codes/master/data/continent-codes.csv",
         Country: "https://raw.githubusercontent.com/datasets/country-codes/master/data/country-codes.csv",
-        Airport: "https://raw.githubusercontent.com/datasets/airport-codes/master/data/airport-codes.csv"
+        Airport: "https://raw.githubusercontent.com/datasets/airport-codes/master/data/airport-codes.csv",
+        City: "https://raw.githubusercontent.com/datasets/world-cities/master/data/world-cities.csv",
+        # https://raw.githubusercontent.com/datasets/currency-codes/master/data/codes-all.csv
+        # https://gist.githubusercontent.com/lunohodov/1995178/raw/cb8cf1ebe1d1b8fa5759e287ebd6eaecbe3bc3e4/ral_standard.csv
     }
-    _batch_size = 500
+    _batch_size = 1000
 
     def handle(self, *args, **options):
         dir_name = self._make_data_directory()
@@ -26,14 +28,17 @@ class Command(BaseCommand):
 
         continent_file_path = self._get_data_file(self._sources[Continent], dir_name)
         continents = self._populate_model(Continent, ContinentConverter, continent_file_path)
-        foreign_keys[Continent._meta.model] = set(c.pk for c in continents)
+        foreign_keys[Continent] = continents
 
         country_file_path = self._get_data_file(self._sources[Country], dir_name)
         countries = self._populate_model(Country, CountryConverter, country_file_path, foreign_keys=foreign_keys)
-        foreign_keys[Country._meta.model] = set(c.pk for c in countries)
+        foreign_keys[Country] = countries
 
         airport_file_path = self._get_data_file(self._sources[Airport], dir_name)
         airports = self._populate_model(Airport, AirportConverter, airport_file_path, foreign_keys=foreign_keys)
+
+        city_file_path = self._get_data_file(self._sources[City], dir_name)
+        cities = self._populate_model(City, CityConverter, city_file_path, foreign_keys=foreign_keys)
 
     @staticmethod
     def _make_data_directory():
@@ -76,10 +81,16 @@ class ModelConverterBase(object):
     model = None
 
     def __init__(self, foreign_keys=None):
-        self.foreign_keys = {} if foreign_keys is None else foreign_keys
+        self.foreign_keys = self._get_fkeys_pks(foreign_keys) if foreign_keys else {}
         fields = self.model._meta.get_fields()
         self.verbose_names = {f.verbose_name: f.name for f in fields if hasattr(f, 'verbose_name')}
         self.relations = {f.name: f.related_model for f in fields if f.is_relation}
+
+    def _get_fkeys_pks(self, fkeys):
+        pks = {}
+        for model, instances in fkeys.items():
+            pks[model._meta.model] = set(i.pk for i in instances)
+        return pks
 
     def _update_default(self, params, key, value):
         if key not in self.relations:
@@ -135,3 +146,18 @@ class AirportConverter(ModelConverterBase):
 
     def update_longitude(self, params, key, value):
         self.update_latitude(params, key, value)
+
+
+class CityConverter(ModelConverterBase):
+    model = City
+
+    def __init__(self, foreign_keys=None):
+        super(CityConverter, self).__init__(foreign_keys)
+        self.country_names = {c.official_name: c.pk for c in foreign_keys[Country]}
+
+    def update_country(self, params, key, value):
+        pk = self.country_names.get(value, None)
+        if pk is None:
+            return
+        _key = key + '_id'
+        params[_key] = pk
