@@ -78,3 +78,10 @@ class City(models.Model):
     name = models.TextField(verbose_name='name')
     country = models.ForeignKey(Country, on_delete=models.CASCADE, null=True, verbose_name='country')
     subcountry = models.TextField(verbose_name='subcountry')
+
+
+class Currency(models.Model):
+    name = models.TextField(verbose_name='Currency')
+    code = models.CharField(max_length=3, verbose_name='AlphabeticCode')
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, null=True, verbose_name='Entity')
+    withdrawal_date = models.DateField(null=True, verbose_name='WithdrawalDate')

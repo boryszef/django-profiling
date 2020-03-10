@@ -1,7 +1,7 @@
 from rest_framework.relations import SlugRelatedField
 from rest_framework.serializers import ModelSerializer
 
-from api.models import Continent, Country, Airport, City
+from api.models import Continent, Country, Airport, City, Currency
 
 
 class ContinentSerializer(ModelSerializer):
@@ -36,4 +36,13 @@ class CitySerializer(ModelSerializer):
 
     class Meta:
         model = City
+        fields = '__all__'
+
+
+class CurrencySerializer(ModelSerializer):
+
+    country = SlugRelatedField(slug_field='official_name', read_only=True)
+
+    class Meta:
+        model = Currency
         fields = '__all__'

@@ -1,5 +1,6 @@
 import csv
 import os
+from datetime import datetime
 from itertools import islice
 from urllib.parse import urlparse
 from urllib.request import urlretrieve
@@ -7,7 +8,7 @@ from urllib.request import urlretrieve
 from django.conf import settings
 from django.core.management import BaseCommand
 
-from api.models import Country, Continent, Airport, City
+from api.models import Country, Continent, Airport, City, Currency
 
 
 class Command(BaseCommand):
@@ -17,7 +18,7 @@ class Command(BaseCommand):
         Country: "https://raw.githubusercontent.com/datasets/country-codes/master/data/country-codes.csv",
         Airport: "https://raw.githubusercontent.com/datasets/airport-codes/master/data/airport-codes.csv",
         City: "https://raw.githubusercontent.com/datasets/world-cities/master/data/world-cities.csv",
-        # https://raw.githubusercontent.com/datasets/currency-codes/master/data/codes-all.csv
+        Currency: "https://raw.githubusercontent.com/datasets/currency-codes/master/data/codes-all.csv",
         # https://gist.githubusercontent.com/lunohodov/1995178/raw/cb8cf1ebe1d1b8fa5759e287ebd6eaecbe3bc3e4/ral_standard.csv
     }
     _batch_size = 1000
@@ -34,11 +35,14 @@ class Command(BaseCommand):
         countries = self._populate_model(Country, CountryConverter, country_file_path, foreign_keys=foreign_keys)
         foreign_keys[Country] = countries
 
-        airport_file_path = self._get_data_file(self._sources[Airport], dir_name)
-        airports = self._populate_model(Airport, AirportConverter, airport_file_path, foreign_keys=foreign_keys)
+        #airport_file_path = self._get_data_file(self._sources[Airport], dir_name)
+        #airports = self._populate_model(Airport, AirportConverter, airport_file_path, foreign_keys=foreign_keys)
 
-        city_file_path = self._get_data_file(self._sources[City], dir_name)
-        cities = self._populate_model(City, CityConverter, city_file_path, foreign_keys=foreign_keys)
+        #city_file_path = self._get_data_file(self._sources[City], dir_name)
+        #cities = self._populate_model(City, CityConverter, city_file_path, foreign_keys=foreign_keys)
+
+        currency_file_path = self._get_data_file(self._sources[Currency], dir_name)
+        currencies = self._populate_model(Currency, CurrencyConverter, currency_file_path, foreign_keys=foreign_keys)
 
     @staticmethod
     def _make_data_directory():
@@ -156,8 +160,19 @@ class CityConverter(ModelConverterBase):
         self.country_names = {c.official_name: c.pk for c in foreign_keys[Country]}
 
     def update_country(self, params, key, value):
-        pk = self.country_names.get(value, None)
+        pk = self.country_names.get(value.title(), None)
         if pk is None:
             return
         _key = key + '_id'
         params[_key] = pk
+
+
+class CurrencyConverter(CityConverter):
+    model = Currency
+
+    def update_withdrawal_date(self, params, key, value):
+        try:
+            _val = datetime.strptime(value, '%Y-%m').date()
+        except ValueError:
+            return
+        params[key] = _val
