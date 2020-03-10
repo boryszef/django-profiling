@@ -35,11 +35,11 @@ class Command(BaseCommand):
         countries = self._populate_model(Country, CountryConverter, country_file_path, foreign_keys=foreign_keys)
         foreign_keys[Country] = countries
 
-        #airport_file_path = self._get_data_file(self._sources[Airport], dir_name)
-        #airports = self._populate_model(Airport, AirportConverter, airport_file_path, foreign_keys=foreign_keys)
+        airport_file_path = self._get_data_file(self._sources[Airport], dir_name)
+        airports = self._populate_model(Airport, AirportConverter, airport_file_path, foreign_keys=foreign_keys)
 
-        #city_file_path = self._get_data_file(self._sources[City], dir_name)
-        #cities = self._populate_model(City, CityConverter, city_file_path, foreign_keys=foreign_keys)
+        city_file_path = self._get_data_file(self._sources[City], dir_name)
+        cities = self._populate_model(City, CityConverter, city_file_path, foreign_keys=foreign_keys)
 
         currency_file_path = self._get_data_file(self._sources[Currency], dir_name)
         currencies = self._populate_model(Currency, CurrencyConverter, currency_file_path, foreign_keys=foreign_keys)

@@ -85,3 +85,6 @@ class Currency(models.Model):
     code = models.CharField(max_length=3, verbose_name='AlphabeticCode')
     country = models.ForeignKey(Country, on_delete=models.CASCADE, null=True, verbose_name='Entity')
     withdrawal_date = models.DateField(null=True, verbose_name='WithdrawalDate')
+
+    def __str__(self):
+        return "{} ({})".format(self.name, self.code)
