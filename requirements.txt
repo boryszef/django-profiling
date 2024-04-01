@@ -1,6 +1,6 @@
 backcall==0.1.0
 decorator==4.4.1
-Django==2.2.10
+Django==3.2.25
 django-debug-toolbar==2.2
 djangorestframework==3.11.0
 ipython==7.12.0
